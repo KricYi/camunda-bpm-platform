@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.camunda.bpm.engine;
+package org.camunda.bpm.engine.rest.openapi.generator.impl;
 
 import java.io.File;
 import java.io.IOException;
@@ -44,7 +44,7 @@ public class TemplateParser {
     String mainTemplate = args[1];
     String outputFile = args[2];
 
-    Configuration cfg = new Configuration();
+    Configuration cfg = new Configuration(Configuration.VERSION_2_3_29);
 
     cfg.setDirectoryForTemplateLoading(new File(sourceDirectory));
     cfg.setDefaultEncoding("UTF-8");
@@ -52,14 +52,14 @@ public class TemplateParser {
     Template template = cfg.getTemplate(mainTemplate);
 
     Map<String, Object> templateData = createTemplateData();
-    String formattedJson = null;
+
     try (StringWriter out = new StringWriter()) {
 
       template.process(templateData, out);
 
       // format json with Gson
       String jsonString = out.getBuffer().toString();
-      formattedJson = formatJsonString(jsonString);
+      String formattedJson = formatJsonString(jsonString);
 
       File outFile = new File(outputFile);
       FileUtils.forceMkdir(outFile.getParentFile());
@@ -68,7 +68,7 @@ public class TemplateParser {
 
   }
 
-  private static Map<String, Object> createTemplateData() {
+  protected static Map<String, Object> createTemplateData() {
     Map<String, Object> templateData = new HashMap<>();
 
     String version = TemplateParser.class.getPackage().getImplementationVersion();
@@ -85,7 +85,7 @@ public class TemplateParser {
     return templateData;
   }
 
-  private static String formatJsonString(String jsonString) {
+  protected static String formatJsonString(String jsonString) {
     Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     JsonParser jsonParser = new JsonParser();
