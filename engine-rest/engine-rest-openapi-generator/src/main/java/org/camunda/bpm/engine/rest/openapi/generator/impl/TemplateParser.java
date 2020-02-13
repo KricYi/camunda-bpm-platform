@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.camunda.bpm.engine.rest;
+package org.camunda.bpm.engine.rest.openapi.generator.impl;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,15 +41,20 @@ public class TemplateParser {
 
   public static void main(String[] args) throws ParseException, IOException, TemplateException {
 
-    if (args.length != 3) {
-      throw new RuntimeException("Must provide two arguments: <source template directory> <main template> <output directory>");
+    if (args.length != 3 && args.length != 4) {
+      throw new RuntimeException("Must provide three arguments: <source template directory> <main template> <output directory>");
     }
 
     String sourceDirectory = args[0];
     String mainTemplate = args[1];
     String outputFile = args[2];
+    String debugFile = null;
 
-    Configuration cfg = new Configuration();
+    if (args.length == 4) {
+      debugFile = args[3];
+    }
+
+    Configuration cfg = new Configuration(Configuration.VERSION_2_3_29);
 
     cfg.setDirectoryForTemplateLoading(new File(sourceDirectory));
     cfg.setDefaultEncoding("UTF-8");
@@ -60,6 +67,13 @@ public class TemplateParser {
 
       template.process(templateData, out);
 
+      // to create intermediate json file before the formatting
+      if (debugFile != null) {
+        String path = createOutputFile(debugFile);
+        FileUtils.forceMkdir(new File(debugFile));
+        Files.write(Paths.get(path), out.getBuffer().toString().getBytes());
+      }
+
       // format json with Gson
       String jsonString = out.getBuffer().toString();
       String formattedJson = formatJsonString(jsonString);
@@ -70,24 +84,31 @@ public class TemplateParser {
     }
   }
 
-  private static Map<String, Object> createTemplateData() {
+  protected static Map<String, Object> createTemplateData() {
     Map<String, Object> templateData = new HashMap<>();
 
     String version = TemplateParser.class.getPackage().getImplementationVersion();
 
-    // docsVersion = 7.X.Y
-    templateData.put("cambpmVersion", version);
+    if (version != null) {
+      // docsVersion = 7.X.Y
+      templateData.put("cambpmVersion", version);
 
-    if (version.contains("SNAPSHOT")) {
-      templateData.put("docsVersion", "develop");
+      if (version.contains("SNAPSHOT")) {
+        templateData.put("docsVersion", "develop");
+      } else {
+        // docsVersion = 7.X
+        templateData.put("docsVersion", version.substring(0, version.lastIndexOf(".")));
+      }
     } else {
-      // docsVersion = 7.X
-      templateData.put("docsVersion", version.substring(0, version.lastIndexOf(".")));
+      // only for debug cases 
+      templateData.put("cambpmVersion", "latest");
+      templateData.put("docsVersion", "latest");
     }
+
     return templateData;
   }
 
-  private static String formatJsonString(String jsonString) {
+  protected static String formatJsonString(String jsonString) {
     Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     JsonParser jsonParser = new JsonParser();
@@ -95,6 +116,12 @@ public class TemplateParser {
     String formattedJson = gson.toJson(json);
 
     return formattedJson;
+  }
+
+  protected static String createOutputFile(String debugFile) throws IOException {
+    DateTimeFormatter timeStampPattern = DateTimeFormatter.ofPattern("HH-mm-ss");
+
+    return debugFile + "/intermediate-openapi-" + timeStampPattern.format(java.time.LocalDateTime.now()) + ".json";
   }
 
 }
